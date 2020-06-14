@@ -85,6 +85,9 @@ flutter:
     - family: Pacifico
       fonts:
         - asset: assets/font/Pacifico-Regular.ttf
+    - family: SourceCodePro
+      fonts:
+        - asset: assets/font/SourceCodePro-Regular.ttf
 
 
 

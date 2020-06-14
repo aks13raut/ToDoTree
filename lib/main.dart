@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 part 'myColors.dart';
 part 'task.dart';
 part 'database.dart';
+part 'taskNode.dart';
 
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,16 +44,21 @@ class ToDoTree extends StatefulWidget {
 
 class ToDoTreeState extends State<ToDoTree> {
   List<Task> tasks;
+  DateTime dueDate;
 
   Future loadFromDB() async {
     tasks = await retriveTasks();
   }
 
-  final _formKey = GlobalKey<FormState>();
+  final formKey = GlobalKey<FormState>();
 
   void _addTodoItem(String title) {
     if(title.length > 0){
       Task task = new Task(title);
+      if(dueDate!=null){
+        task.dueDate = dueDate;
+        dueDate = null;
+      }
       setState(() => tasks.add(task));
       insertTask(task);
     }
@@ -66,6 +72,17 @@ class ToDoTreeState extends State<ToDoTree> {
         return _buildToDoItem(tasks[index],index);
       },
     );
+  }
+
+  Future<Null> selectDate(BuildContext context) async {
+    final DateTime picked = await showDatePicker(
+      context: context,
+      initialDate: (dueDate==null)?DateTime.now():dueDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(new Duration(days: 365 * 100))
+    );
+    if(picked!=null)
+      dueDate = picked;
   }
 
   Widget _buildToDoItem(Task _task,int index) {
@@ -89,54 +106,64 @@ class ToDoTreeState extends State<ToDoTree> {
     );
   }
 
-  void _pushAddTodoScreen(BuildContext context) {
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        final title = TextEditingController();
-        return new AlertDialog(
-            title: new Text('Add a new task'),
-            content: new Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextFormField(
-                    controller: title,
-                    decoration: const InputDecoration(
-                      hintText: 'Enter something to do..',
-                    ),
-                    validator: (value) {
-                      if(value.isEmpty)
-                        return 'Please enter some text';
-                      return null;
-                    },
-                  ),
-                ],
+  
+  void _addTaskBottomSheet(BuildContext context){
+    final title = TextEditingController();
+    showModalBottomSheet(
+    shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(10.0))),
+    context: context,
+    
+    isScrollControlled: true,
+    builder: (context) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal:18 ),
+      child: new Form(
+        key: formKey,
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+            TextFormField(
+                controller: title,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (value){
+                  _addTodoItem(value);
+                  Navigator.of(context).pop();
+                },
+                decoration: const InputDecoration(
+                  hintText: 'Enter something to do..',
+                ),
+                validator: (value) {
+                  if(value.isEmpty)
+                    return 'Please enter some text';
+                  return null;
+                },
               ),
-              onChanged: (){
-                if (_formKey.currentState.validate()) {
-                  _formKey.currentState.save();
-                }
-              },
-            ),
-            actions: <Widget>[
-            new FlatButton(
-              child: new Icon(Icons.cancel),
-              onPressed: () => Navigator.of(context).pop()
-            ),
-            new FlatButton(
-              child: new Icon(Icons.add_box),
-              onPressed: () {
-                _addTodoItem(title.text);
-                Navigator.of(context).pop();
-              }
-            ),
-          ]
-        );
-      }
-    );
+              ActionChip(
+                avatar: Icon(
+                  Icons.calendar_today,
+                  color: MyColors.primary,
+                  ),
+                label: Text("due date"),
+                onPressed: (){
+                  selectDate(context);
+                },
+              ),
+            ],
+          ),
+        ),
+        onChanged: (){
+          if (formKey.currentState.validate()) {
+            formKey.currentState.save();
+          }
+        },
+      ),
+    ));
   }
 
   @override
@@ -153,7 +180,8 @@ class ToDoTreeState extends State<ToDoTree> {
       body: _buildToDoTree(),
       floatingActionButton: new FloatingActionButton(
         onPressed: (){
-          _pushAddTodoScreen(context);
+           _addTaskBottomSheet(context);
+          //_pushAddTodoScreen(context);
         },
         tooltip: 'Add task',
         child: new Icon(Icons.add),
@@ -161,170 +189,5 @@ class ToDoTreeState extends State<ToDoTree> {
     );
   }
 
-}
-
-class TaskNode extends StatefulWidget {
-  final Task task;
-  
-  const TaskNode({
-    Key key,
-    this.task,
-  }) : super(key: key);
-  @override
-  createState() => new TaskNodeState(task);
-
-}
-
-class TaskNodeState extends State<TaskNode> {
-  Task task = new Task("Default");
-  final _formKey = GlobalKey<FormState>();
-
-  TaskNodeState.fromString(String text) {
-    task.title = text;
-    task.isDone = false;
-  }
-
-  TaskNodeState(Task task) {
-    this.task = task;
-  }
-
-  void onDoneChange(bool newValue){
-      setState(() {
-        task.isDone = newValue;
-        updateTask(task);
-      });
-  }
-
-  void _addSubTask(BuildContext context){
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        final title = TextEditingController();
-        return new AlertDialog(
-            title: new Text('Add a new task'),
-            content: new Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextFormField(
-                    controller: title,
-                    decoration: const InputDecoration(
-                      hintText: 'Enter something to do..',
-                    ),
-                    validator: (value) {
-                      if(value.isEmpty)
-                        return 'Please enter some text';
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-              onChanged: (){
-                if (_formKey.currentState.validate()) {
-                  _formKey.currentState.save();
-                }
-              },
-            ),
-            actions: <Widget>[
-            new FlatButton(
-              child: new Icon(Icons.cancel),
-              onPressed: () => Navigator.of(context).pop()
-            ),
-            new FlatButton(
-              child: new Icon(Icons.add_box),
-              onPressed: () {
-                if (_formKey.currentState.validate()) {
-                  setState(() {
-                    Task newTask = new Task(title.text,l: task.level+1,parentID: task.id);
-                    task.addSubTask(newTask);
-                    insertTask(newTask);
-                  });
-                }
-                Navigator.of(context).pop();
-              }
-            ),
-          ]
-        );
-      }
-    );
-  }
-
-  Widget _buildTaskTitle(BuildContext context){
-    var paddingBase = 0.033*MediaQuery.of(context).size.width;
-    return ExpansionTile(
-      key: ValueKey(task.id),
-      trailing: Container(height: 0.0,width: 0.0,),
-      title: Padding(
-        padding: EdgeInsets.only(left:task.level*paddingBase),
-        child:Row( 
-          children: <Widget>[
-            Checkbox(
-              value: task.isDone,
-              onChanged: onDoneChange
-            ),
-
-            Expanded(
-              child: new Text(task.title),
-              ),
-          ]
-        )
-      ),
-      children: <Widget>[Row(
-        children: <Widget>[
-          Expanded(
-            child: Text("Details\nlevel: "+task.level.toString()+"\nID : "+task.id.toString()+"\nParent ID : "+task.parentId.toString())
-          ),
-          FlatButton(
-            child:Icon(Icons.add_box),
-            onPressed: (){
-              _addSubTask(context);
-            },
-          )
-        ]
-      )]
-    );
-  }
-
-  Widget _buildTasks(BuildContext context) {
-    if (task.subTasks.isEmpty)
-      return _buildTaskTitle(context);
-    else
-      return Column(
-        children: <Widget>[
-          _buildTaskTitle(context), 
-          ListView.builder(
-            shrinkWrap: true,
-            physics: ClampingScrollPhysics(),
-            itemCount: task.subTasks.length,
-            itemBuilder: (context, index){
-              var subtask = task.subTasks[index];
-              return Dismissible(
-                key: ValueKey(subtask.id),
-                child: Container(
-                  child: TaskNode(task:subtask)
-                ),
-                background: Container(
-                  color: Colors.red,
-                  child: Icon(Icons.delete),
-                  alignment: Alignment(0.9, 0),
-                ),
-                onDismissed: (direction) {
-                  setState((){
-                    deleteTask(task.subTasks[index]);
-                    task.subTasks.removeAt(index);
-                  });
-                },
-              );
-            },
-          )
-        ] 
-      );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _buildTasks(context);
-  }
 }
 

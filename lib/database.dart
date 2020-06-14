@@ -5,10 +5,17 @@ final Future<Database> database = getDatabasesPath().then((String path) {
     join(path, 'todotree_database.db'),
     onCreate: (db, version) {
       return db.execute(
-        "CREATE TABLE tasks( id TEXT PRIMARY KEY, title TEXT, description TEXT, isDone INTEGER, level INTEGER, parent TEXT, FOREIGN KEY (parent) REFERENCES tasks(id))"
+        "CREATE TABLE tasks( id TEXT PRIMARY KEY, title TEXT, description TEXT, isDone INTEGER, level INTEGER, parent TEXT, dueDate DATETIME, FOREIGN KEY (parent) REFERENCES tasks(id))"
       );
     },
-    version: 1,
+    version: 2,
+    onUpgrade: (db, oldVer, newVer){
+      if(newVer > oldVer)
+      return db.execute(
+        "ALTER TABLE tasks ADD COLUMN dueDate DATETIME"
+      );
+      return db.execute("");   
+    }
   );
 });
 
@@ -20,6 +27,7 @@ Future<void> insertTask(Task task) async {
     conflictAlgorithm: ConflictAlgorithm.replace,
   );
 }
+
 Future<void> updateTask(Task task) async {
   final Database db = await database;
   await db.update(
@@ -29,6 +37,7 @@ Future<void> updateTask(Task task) async {
     whereArgs: [task.id],
   );
 }
+
 Future<void> deleteTask(Task task) async {
   final Database db = await database;
   await db.delete(
@@ -37,6 +46,7 @@ Future<void> deleteTask(Task task) async {
     whereArgs: [task.id],
   );
 }
+
 Future<List<Task>> retriveTasks() async {
   final Database db = await database;
   final List<Map<String, dynamic>> maps = await db.query('tasks');
@@ -64,5 +74,7 @@ Future<List<Task>> retriveTasks() async {
       copyOfAllTasks.remove(key);
     }
   });
-  return copyOfAllTasks.entries.map((e) => e.value).toList();
+  List<Task> finalList = copyOfAllTasks.entries.map((e) => e.value).toList();
+  finalList.forEach((task) {task.calcProgress();});
+  return finalList;
 }

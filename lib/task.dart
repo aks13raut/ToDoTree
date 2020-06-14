@@ -4,34 +4,37 @@ class Task {
 
   String id,parentId;
   String title,description;
-  double progress;
+  DateTime dueDate;
   bool isDone;
   int level;
-  List<Task> subTasks;
 
-  Task(String _title,{int l=0,String parentID = "none"}){
+  List<Task> subTasks;
+  double progress;
+
+  Task(this.title,
+  {this.level = 0,
+  this.parentId = "none",
+  this.description = ""}){
     id = new DateTime.now().toString();
-    parentId = parentID;
-    title = _title;
     isDone = false;
     progress = 0.0;
     subTasks = new List<Task>();
-    level = l;
   }
   
   addSubTask(Task task){
     subTasks.add(task);
   }
-  
-  getProgress(){
+
+  double calcProgress(){
     if(subTasks.isEmpty){
-      return isDone?100.0:0.0;
+      progress = isDone?100.0:0.0;
     }
     else{
       progress = 0;
-      subTasks.forEach((task) { progress += task.getProgress(); });
-      return progress;
+      subTasks.forEach((task) { progress += task.calcProgress(); });
+      progress = progress/subTasks.length;
     }
+    return progress;
   }
   
   Map<String, dynamic> toMap(){
@@ -42,6 +45,7 @@ class Task {
       'isDone': isDone?1:0,
       'level': level,
       'parent': parentId,
+      'dueDate': (dueDate!=null)?dueDate.toIso8601String():null,
     };
   }
   
@@ -52,6 +56,8 @@ class Task {
     isDone = map["isDone"]==1?true:false;
     level = map["level"];
     parentId = map["parent"];
+    dueDate = (map["dueDate"]!=null)?DateTime.parse(map["dueDate"]):null;
+
     subTasks = new List<Task>();
     progress = 0.0;
   }
